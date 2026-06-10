@@ -12,7 +12,7 @@ DATA_DIR = './fewshot_test/'  # Folder z obrazkami testowymi
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Lista modeli do ewaluacji
-MODELS_TO_TEST = ['dino_small', 'dino_base', 'clip']
+MODELS_TO_TEST = ['dino_small', 'dino_base', 'dino_large', 'clip']
 
 
 # ================= 2. Architektura Adaptera =================
@@ -59,6 +59,9 @@ for MODEL_NAME in MODELS_TO_TEST:
     elif MODEL_NAME == 'dino_base':
         FEATURES_DIR = './precomputed_test_dino_base/'
         INPUT_DIM, FEATURE_KEY = 768, 'dino_feature'
+    elif MODEL_NAME == 'dino_large':
+        FEATURES_DIR = './precomputed_test_dino_large/'
+        INPUT_DIM, FEATURE_KEY = 1024, 'dino_feature'
     elif MODEL_NAME == 'clip':
         FEATURES_DIR = './precomputed_test_clip/'
         INPUT_DIM, FEATURE_KEY = 768, 'clip_feature'
@@ -76,15 +79,16 @@ for MODEL_NAME in MODELS_TO_TEST:
     adapter.load_state_dict(torch.load(WEIGHTS_PATH, map_location=DEVICE))
     adapter.eval()
 
-    classes = [d for d in os.listdir(FEATURES_DIR) if os.path.isdir(os.path.join(FEATURES_DIR, d))]
+    classes = sorted([d for d in os.listdir(FEATURES_DIR) if os.path.isdir(os.path.join(FEATURES_DIR, d))])
     total_iou = 0.0
+    iou_values = []
     count = 0
 
     with torch.no_grad():
         for class_name in classes:
             feat_class_dir = os.path.join(FEATURES_DIR, class_name)
             img_class_dir = os.path.join(DATA_DIR, class_name)
-            files = [f for f in os.listdir(feat_class_dir) if f.endswith('.pt')]
+            files = sorted([f for f in os.listdir(feat_class_dir) if f.endswith('.pt')])
             if len(files) < 2: continue
 
             ref_file = files[0]
@@ -110,6 +114,7 @@ for MODEL_NAME in MODELS_TO_TEST:
 
                 iou = calculate_iou(pred_masks[0, 0], gt_mask_tensor)
                 total_iou += iou
+                iou_values.append(iou)
                 count += 1
 
                 # Zapisujemy tylko pierwsze 2 predykcje z każdej klasy dla wizualizacji
@@ -132,13 +137,22 @@ for MODEL_NAME in MODELS_TO_TEST:
                     plt.savefig(os.path.join(OUTPUT_VIS_DIR, f"{class_name}_{query_file.replace('.pt', '.png')}"))
                     plt.close(fig)
 
-    final_results[MODEL_NAME] = total_iou / count if count > 0 else 0
-    print(f" Wynik: {final_results[MODEL_NAME]:.4f}")
+    final_results[MODEL_NAME] = {
+        'mIoU': total_iou / count if count > 0 else 0,
+        'failure_rate': float(np.mean(np.asarray(iou_values) < 0.5)) if iou_values else 0,
+        'high_quality_rate': float(np.mean(np.asarray(iou_values) >= 0.8)) if iou_values else 0,
+    }
+    print(f" Wynik: {final_results[MODEL_NAME]['mIoU']:.4f}")
 
 # ================= 5. Podsumowanie =================
 print("\n" + "*" * 50)
-print("              WYNIKI KOŃCOWE (mIoU)")
+print("              WYNIKI KOŃCOWE")
 print("*" * 50)
-for model, score in final_results.items():
-    print(f"{model.upper():<20} |  {score:.4f}")
+for model, metrics in final_results.items():
+    print(
+        f"{model.upper():<20} | "
+        f"mIoU: {metrics['mIoU']:.4f} | "
+        f"Porażki: {100.0 * metrics['failure_rate']:.1f}% | "
+        f"Wysoka jakość: {100.0 * metrics['high_quality_rate']:.1f}%"
+    )
 print("*" * 50)
