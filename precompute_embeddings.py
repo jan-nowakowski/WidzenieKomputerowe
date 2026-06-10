@@ -8,7 +8,7 @@ from mobile_sam import sam_model_registry
 
 # ================= 1. Konfiguracja =================
 # Teraz lista: zrób dla wszystkich na raz
-MODELS_TO_RUN = ['dino_small', 'dino_base', 'clip']
+MODELS_TO_RUN = ['dino_small', 'dino_base', 'dino_large', 'clip']
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Upewnij się, że masz te foldery (wynik skryptu split_data)
@@ -30,6 +30,10 @@ for model_name in MODELS_TO_RUN:
         FEATURE_KEY = 'dino_feature'
     elif model_name == 'dino_base':
         model_path = 'facebook/dinov2-base'
+        vision_model = AutoModel.from_pretrained(model_path).to(DEVICE)
+        FEATURE_KEY = 'dino_feature'
+    elif model_name == 'dino_large':
+        model_path = 'facebook/dinov2-large'
         vision_model = AutoModel.from_pretrained(model_path).to(DEVICE)
         FEATURE_KEY = 'dino_feature'
     elif model_name == 'clip':

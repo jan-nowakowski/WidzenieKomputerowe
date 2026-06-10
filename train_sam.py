@@ -7,7 +7,7 @@ from mobile_sam import sam_model_registry
 
 # ================= 1. Konfiguracja =================
 # Teraz lista: trenujemy wszystko po kolei
-MODELS_TO_TRAIN = ['dino_small', 'dino_base', 'clip']
+MODELS_TO_TRAIN = ['dino_small', 'dino_base', 'dino_large', 'clip']
 EPOCHS = 30000
 LR = 0.001
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -45,6 +45,9 @@ for model_name in MODELS_TO_TRAIN:
     elif model_name == 'dino_base':
         FEATURES_DIR = './precomputed_train_dino_base/'
         INPUT_DIM, FEATURE_KEY = 768, 'dino_feature'
+    elif model_name == 'dino_large':
+        FEATURES_DIR = './precomputed_train_dino_large/'
+        INPUT_DIM, FEATURE_KEY = 1024, 'dino_feature'
     elif model_name == 'clip':
         FEATURES_DIR = './precomputed_train_clip/'
         INPUT_DIM, FEATURE_KEY = 768, 'clip_feature'
